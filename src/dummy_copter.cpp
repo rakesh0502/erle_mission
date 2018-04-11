@@ -55,10 +55,10 @@ int main(int argc, char **argv) {
 		dummy_copter::x += 1.0;
 		dummy_copter::y += 1.0;
 		dummy_copter::z += 1.0;
-		if(dummy_copter::x > 20.0) {
-			dummy_copter::x = 5.8;
-			dummy_copter::y = 5.8;
-			dummy_copter::z = 5.8;
+		if(dummy_copter::x > 27.0) {
+			dummy_copter::x = 8.8;
+			dummy_copter::y = 8.8;
+			dummy_copter::z = 8.8;
 		}
 		dummy_copter::currentPose();
 		ros::spinOnce();

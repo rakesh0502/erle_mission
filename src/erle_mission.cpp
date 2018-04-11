@@ -4,16 +4,21 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <ros/package.h>
 #include <fstream>
+#include <string.h>
 #include <vector>
 #include <iostream>
 #include <stdlib.h> 
+#include <boost/algorithm/string.hpp>
+
+using namespace std;
 
 ros::Publisher goal_pub;
 ros::Subscriber goal_sub;
 geometry_msgs::PoseStamped msg;
 geometry_msgs::Pose pose;
-std::vector<float> vec;
-float value;
+vector<string> vec;
+string line;
+string delimiter = ",";
 
 
 class erle_mission {
@@ -22,16 +27,18 @@ class erle_mission {
 
 
 	public:
-	constexpr static float pre=1.0f;
+	constexpr static float pre=0.5f;
 	static float p_x, p_y, p_z;
 	static float g_x, g_y, g_z;
 	static bool reached;
+	static bool publish;
 	
 	void static publish_goal()
 	{ 
 		msg.pose.position.x = g_x;
 		msg.pose.position.y = g_y;
 		msg.pose.position.z = g_z;
+		erle_mission::publish = false;
 		ROS_INFO("Publishing goal: x: %f, y: %f, z: %f", g_x, g_y, g_z);
 		goal_pub.publish(msg);
 	}
@@ -45,6 +52,8 @@ class erle_mission {
 		if(abs(p_x-g_x)<pre && abs(p_y-g_y)<pre && abs(p_z-g_z)<pre){
 			reached = true;
 			ROS_INFO("Goal reached: x: %f, y: %f, z: %f", g_x, g_y, g_z);
+		}else{
+			reached = false;
 		}
 	}
 
@@ -59,6 +68,7 @@ float erle_mission::g_y = 0.0f;
 float erle_mission::g_z = 0.0f;
 
 bool erle_mission::reached = false;
+bool erle_mission::publish = true;
 
 int main(int argc, char **argv) {
 
@@ -72,9 +82,11 @@ int main(int argc, char **argv) {
 
 	if (myFile.is_open()){
 	    ROS_INFO("File is open");
-	    while(myFile >> value) {
-	        vec.push_back(value);
-	        ROS_INFO("value is %f",value);
+	    myFile >> line;
+	    ROS_INFO("Protocol number:%s\n", line.c_str());
+	    while(myFile >> line) {
+	        vec.push_back(line);
+	        ROS_INFO("Line is %s\n",line.c_str());
 	    }
    		myFile.close();
 
@@ -86,21 +98,25 @@ int main(int argc, char **argv) {
     goal_sub = nh.subscribe("currentPose",1, &erle_mission::listenPose);
 	
 	float delta = 0.0;
-
-
+	int i = 0;
+	vector<string> v;
 	while (ros::ok()) 
 	{
-		erle_mission::g_x = vec[0]+delta;
-		erle_mission::g_y = vec[1]+delta;
-		erle_mission::g_z = vec[2]+delta;
-		erle_mission::publish_goal();
-
-		if(erle_mission::reached) {
-			delta += 1;
-			if(delta == 3.0) {
-				delta = 0.0;
+		if(i<vec.size()) {
+			boost::split(v, vec[i], boost::is_any_of(delimiter));
+			erle_mission::g_x = atof(v[0].c_str());
+			erle_mission::g_y = atof(v[1].c_str());
+			erle_mission::g_z = atof(v[2].c_str());
+			if(erle_mission::publish) {
+				ROS_INFO("Goal is x: %f, y: %f, z: %f\n", erle_mission::g_x, erle_mission::g_y, erle_mission::g_z);
+				erle_mission::publish_goal();
 			}
-			erle_mission::reached = false;
+			
+			if(erle_mission::reached) {
+				erle_mission::publish = true;
+				erle_mission::reached = false;
+				++i;
+			}
 		}
 		ros::spinOnce();
 		loop_rate.sleep();
